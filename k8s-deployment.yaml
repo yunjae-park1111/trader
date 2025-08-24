@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stocktitan-news-listener
+  labels:
+    app: stocktitan-news-listener
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stocktitan-news-listener
+  template:
+    metadata:
+      labels:
+        app: stocktitan-news-listener
+    spec:
+      containers:
+      - name: stocktitan-news-listener
+        image: ghcr.io/yunjae-park1111/stocktitan-news-listener:latest
+        imagePullPolicy: Always
+        
+        # 환경변수 (실제 배포시 값 수정 필요)
+        env:
+        - name: OPENAI_API_KEY
+          value: "your-openai-api-key-here"
+        - name: GPT_MODEL
+          value: "gpt-5"
+        - name: STOCKTITAN_EMAIL
+          value: "your-email@example.com"
+        - name: STOCKTITAN_PASSWORD
+          value: "your-password"
+        - name: STOCKTITAN_NAME
+          value: "your-display-name"
+        - name: TELEGRAM_BOT_TOKEN
+          value: "your-telegram-bot-token"
+        - name: TELEGRAM_CHAT_ID
+          value: "your-chat-id"
+        - name: WB_EMAIL
+          value: "your-webull-email"
+        - name: WB_PASSWORD
+          value: "your-webull-password"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        # 리소스 제한
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        # 헬스체크
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - -f
+            - "python.*main.py"
+          initialDelaySeconds: 60
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+      
+      restartPolicy: Always

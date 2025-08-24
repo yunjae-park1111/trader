@@ -1,0 +1,48 @@
+# 환경변수 파일
+.env
+.env.*
+!.env.example
+
+# 개인 배포 파일들
+personal-deployment.yaml
+personal-Dockerfile
+
+# 뉴스 데이터 저장 폴더 (런타임에 생성됨)
+news_data_browser/
+
+# 로그 파일
+*.log
+logs/
+
+# Python 관련
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+venv/
+env/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+
+# 데이터 파일 (필요시)
+# news_data_browser/*.csv
+# news_data_browser/*.json
+
+# 임시 파일
+*.tmp
+*.temp
