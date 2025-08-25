@@ -33,7 +33,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Playwright 브라우저 설치
 RUN playwright install chromium
-RUN playwright install-deps chromium
 
 # 소스 코드 복사
 COPY main.py .
