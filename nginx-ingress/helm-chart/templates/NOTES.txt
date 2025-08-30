@@ -1,0 +1,50 @@
+🎉 Nginx Ingress 헬름 차트가 성공적으로 설치되었습니다!
+
+📋 설치된 구성요소:
+{{- if index .Values "ingress-nginx" "enabled" }}
+✅ Nginx Ingress Controller
+{{- end }}
+{{- if index .Values "cert-manager" "enabled" }}
+✅ Cert-Manager (Let's Encrypt SSL)
+{{- end }}
+
+
+🌐 접속 정보:
+- 도메인: https://{{ .Values.global.domain }}
+- 포워딩 IP: 172.30.1.100
+
+🔒 SSL 인증서:
+{{- if eq .Values.global.environment "staging" }}
+- 환경: 스테이징 (테스트용)
+- Issuer: letsencrypt-staging
+⚠️  스테이징 인증서는 브라우저에서 경고가 표시될 수 있습니다.
+{{- else }}
+- 환경: 프로덕션
+- Issuer: letsencrypt-prod
+{{- end }}
+
+📊 상태 확인 명령어:
+# Ingress Controller 확인
+kubectl get pods -n ingress-nginx
+
+# Cert-Manager 확인
+kubectl get pods -n cert-manager
+
+# ClusterIssuer 확인
+kubectl get clusterissuer
+
+# 인증서 확인
+kubectl get certificate -A
+
+# Ingress 확인
+kubectl get ingress -A
+
+🎯 포트: 80 (HTTP), 443 (HTTPS)
+📧 Let's Encrypt 이메일: {{ .Values.global.email }}
+
+💡 문제 해결:
+- SSL 인증서가 발급되기까지 5-10분 정도 소요될 수 있습니다.
+- 도메인이 올바르게 설정되었는지 확인하세요.
+- NodePort로 설정된 포트가 외부에서 접근 가능한지 확인하세요.
+
+Happy Serving! 🚀

@@ -1,0 +1,118 @@
+# Global settings
+global:
+  # 도메인 설정 (선택사항 - 없으면 IP만 사용)
+  domain: yjhome.kro.kr  # 비워두면 IP 전용 모드
+  email: piwhyjey@gmail.com  # Let's Encrypt 이메일 주소
+  environment: production  # staging 또는 production
+  
+  # SSL/TLS 설정
+  ssl:
+    enabled: true  # SSL 활성화/비활성화
+    secretName: yjhome-tls-cert
+    clusterIssuer: letsencrypt-prod  # SSL 활성화시에만 필요
+
+# Nginx Ingress Controller 설정
+ingress-nginx:
+  enabled: true
+  controller:
+    # Service 설정 - routerProxy가 SSL termination을 처리하므로 ClusterIP로 변경
+    service:
+      type: ClusterIP
+  
+  # TCP 설정 제거 (HTTP snippet으로 대체)
+  
+  config:
+    use-real-ip: "true"
+    real-ip-header: "X-Forwarded-For"
+    real-ip-recursive: "true"
+    proxy-real-ip-cidr: "0.0.0.0/0"
+    
+    metrics:
+      enabled: true
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Cert-Manager 설정
+cert-manager:
+  enabled: true
+  installCRDs: false
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  webhook:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 25m
+        memory: 32Mi
+  cainjector:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# Let's Encrypt Issuer 설정
+letsencrypt:
+  staging:
+    enabled: true
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+  production:
+    enabled: true
+    server: https://acme-v02.api.letsencrypt.org/directory
+
+# NodePort로 80, 443 포트 사용
+
+# 기본 Ingress 설정 (global TLS 사용)
+basicIngress:
+  enabled: true
+  name: basic-ingress
+  
+  # 백엔드 서비스 설정 (나중에 실제 서비스로 변경)
+  serviceName: your-app-service
+  servicePort: 80
+
+# Router SSL Proxy 설정 (백엔드 배열화)
+routerProxy:
+  enabled: true
+  replicas: 1
+  
+  # 백엔드 서비스들 (포트 + 경로 기반 통합)
+  backends:
+  - name: router
+    serviceName: router-service
+    # 외부 서비스 정보 (자동으로 Service/EndpointSlice 생성)
+    external:
+      ip: 172.30.1.254
+      namespace: ingress-nginx
+    
+    # 라우팅 설정 (경로별 포트 매핑)
+    routes:
+    - path: /
+      ports:
+      - targetPort: 8899
+        proxyPort: 10000  # 없으면 targetPort로 기본 동작
+  
+  # 리소스 설정
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+

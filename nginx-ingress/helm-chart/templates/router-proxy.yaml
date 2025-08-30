@@ -1,0 +1,190 @@
+{{- if .Values.routerProxy.enabled }}
+---
+# Router SSL Proxy ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: router-proxy-config
+  namespace: {{ .Release.Namespace }}
+data:
+  nginx.conf: |
+    events {
+      worker_connections 1024;
+    }
+    
+    http {
+      {{- range $backend := .Values.routerProxy.backends }}
+      {{- range $route := $backend.routes }}
+      {{- range $port := $route.ports }}
+      {{- $proxyPort := $port.proxyPort | default $port.targetPort }}
+      upstream {{ $backend.name }}_{{ $proxyPort }}_backend {
+        server {{ $backend.serviceName }}:{{ $port.targetPort }};
+      }
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      
+      {{- range $backend := .Values.routerProxy.backends }}
+      {{- range $route := $backend.routes }}
+      {{- range $port := $route.ports }}
+      {{- $proxyPort := $port.proxyPort | default $port.targetPort }}
+      {{- if and $.Values.global.ssl.enabled (eq (toString $proxyPort) "80") }}
+      # HTTP 서버 (SSL 활성화시 HTTPS로 리다이렉트)
+      server {
+        listen {{ $proxyPort }};
+        server_name {{- if $.Values.global.domain }} {{ $.Values.global.domain }}{{- end }} _;
+        
+        # 모든 HTTP 요청을 HTTPS로 리다이렉트
+        return 301 https://$host$request_uri;
+      }
+      {{- else if $.Values.global.ssl.enabled }}
+      # HTTPS 서버 (SSL Termination → HTTP 전달)
+      server {
+        listen {{ $proxyPort }} ssl http2;
+        server_name {{- if $.Values.global.domain }} {{ $.Values.global.domain }}{{- end }} _;
+        
+        # SSL 인증서 (cert-manager에서 생성한 것 사용)
+        ssl_certificate /etc/ssl/certs/tls.crt;
+        ssl_certificate_key /etc/ssl/certs/tls.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        
+        # {{ $backend.name }}:{{ $port.targetPort }} 서비스로 HTTP 프록시 (SSL Termination)
+        location {{ $route.path }} {
+          proxy_pass http://{{ $backend.name }}_{{ $proxyPort }}_backend;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+          
+          # 백엔드 리다이렉트의 포트를 현재 프록시 포트로 변경
+          proxy_redirect ~^http://(.+):{{ $port.targetPort }}(.*)$ https://$1:{{ $proxyPort }}$2;
+          proxy_redirect ~^https://(.+):{{ $port.targetPort }}(.*)$ https://$1:{{ $proxyPort }}$2;
+          
+          proxy_connect_timeout 30s;
+          proxy_send_timeout 30s;
+          proxy_read_timeout 30s;
+        }
+      }
+      {{- else }}
+      # HTTP 서버 (SSL 비활성화시 직접 HTTP 처리)
+      server {
+        listen {{ $proxyPort }};
+        server_name {{- if $.Values.global.domain }} {{ $.Values.global.domain }}{{- end }} _;
+        
+        # {{ $backend.name }}:{{ $port.targetPort }} 서비스로 HTTP 프록시
+        location {{ $route.path }} {
+          proxy_pass http://{{ $backend.name }}_{{ $proxyPort }}_backend;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto http;
+          
+          # 백엔드 리다이렉트의 포트를 현재 프록시 포트로 변경
+          proxy_redirect ~^http://(.+):{{ $port.targetPort }}(.*)$ http://$1:{{ $proxyPort }}$2;
+          proxy_redirect ~^https://(.+):{{ $port.targetPort }}(.*)$ http://$1:{{ $proxyPort }}$2;
+          
+          proxy_connect_timeout 30s;
+          proxy_send_timeout 30s;
+          proxy_read_timeout 30s;
+        }
+      }
+      {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+    }
+
+---
+# Router SSL Proxy Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.routerProxy.replicas }}
+  selector:
+    matchLabels:
+      app: router-proxy
+  template:
+    metadata:
+      labels:
+        app: router-proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        {{- range $backend := .Values.routerProxy.backends }}
+        {{- range $route := $backend.routes }}
+        {{- range $port := $route.ports }}
+        {{- $proxyPort := $port.proxyPort | default $port.targetPort }}
+        - containerPort: {{ $proxyPort }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.routerProxy.resources }}
+        resources:
+          {{- if .Values.routerProxy.resources.limits }}
+          limits:
+            {{- if .Values.routerProxy.resources.limits.cpu }}
+            cpu: {{ .Values.routerProxy.resources.limits.cpu }}
+            {{- end }}
+            {{- if .Values.routerProxy.resources.limits.memory }}
+            memory: {{ .Values.routerProxy.resources.limits.memory }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.routerProxy.resources.requests }}
+          requests:
+            {{- if .Values.routerProxy.resources.requests.cpu }}
+            cpu: {{ .Values.routerProxy.resources.requests.cpu }}
+            {{- end }}
+            {{- if .Values.routerProxy.resources.requests.memory }}
+            memory: {{ .Values.routerProxy.resources.requests.memory }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        {{- if .Values.global.ssl.enabled }}
+        - name: ssl-cert
+          mountPath: /etc/ssl/certs
+          readOnly: true
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: router-proxy-config
+      {{- if .Values.global.ssl.enabled }}
+      - name: ssl-cert
+        secret:
+          secretName: {{ .Values.global.ssl.secretName }}
+      {{- end }}
+
+---
+# Router SSL Proxy Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: router-proxy-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: LoadBalancer
+  ports:
+  {{- range $backend := .Values.routerProxy.backends }}
+  {{- range $route := $backend.routes }}
+  {{- range $port := $route.ports }}
+  {{- $proxyPort := $port.proxyPort | default $port.targetPort }}
+  - name: port-{{ $proxyPort }}
+    port: {{ $proxyPort }}
+    targetPort: {{ $proxyPort }}
+    protocol: TCP
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  selector:
+    app: router-proxy
+{{- end }}

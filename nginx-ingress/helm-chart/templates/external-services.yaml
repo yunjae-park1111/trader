@@ -1,0 +1,46 @@
+# RouterProxy 백엔드 서비스들의 외부 서비스 자동 생성
+{{- if .Values.routerProxy.enabled }}
+{{- range $backend := .Values.routerProxy.backends }}
+{{- if $backend.external }}
+{{- $serviceName := $backend.serviceName }}
+{{- $config := $backend.external }}
+{{- range $route := $backend.routes }}
+{{- range $port := $route.ports }}
+---
+# {{ $serviceName }} 외부 서비스 (포트 {{ $port.targetPort }})
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+  namespace: {{ $config.namespace | default "default" }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ $port.targetPort }}
+    targetPort: {{ $port.targetPort }}
+    protocol: TCP
+{{- end }}
+{{- end }}
+---
+# {{ $serviceName }} EndpointSlice (v1.33+ 호환)
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: {{ $serviceName }}
+  namespace: {{ $config.namespace | default "default" }}
+  labels:
+    kubernetes.io/service-name: {{ $serviceName }}
+addressType: IPv4
+endpoints:
+- addresses:
+  - {{ $config.ip }}
+ports:
+{{- range $r := $backend.routes }}
+{{- range $p := $r.ports }}
+- port: {{ $p.targetPort }}
+  protocol: TCP
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

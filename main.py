@@ -22,7 +22,10 @@ def main():
     logger.info(f"STOCKTITAN_NAME: {config.STOCKTITAN_NAME}")
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            channel="chromium"
+        )
         context = browser.new_context()
         page = context.new_page()
 
@@ -105,7 +108,7 @@ def main():
             # 로그인 성공 확인 (닉네임이 나타나는지 체크)
             try:
                 page.wait_for_load_state('load', timeout=10000)
-                time.sleep(1)
+                time.sleep(5)
 
                 page.wait_for_selector(f"text={config.STOCKTITAN_NAME}", timeout=10000)
                 logger.info(f"✅ 로그인 성공: {config.STOCKTITAN_NAME}")

@@ -1,0 +1,216 @@
+# Example Values Configuration
+# nginx-ingress/helm-chart/values-example.yaml
+
+# ==============================================
+# 예제 1: 기본 SSL 설정 (단일 외부 라우터)
+# ==============================================
+
+# Global 설정
+global:
+  # 도메인 설정 (선택사항 - 없으면 IP만 사용)  
+  domain: yourdomain.com  # 실제 도메인으로 변경
+  email: your-email@example.com  # Let's Encrypt 이메일
+  environment: production  # staging 또는 production
+  
+  # SSL/TLS 설정
+  ssl:
+    enabled: true  # SSL 활성화
+    secretName: your-tls-cert  # 인증서 Secret 이름
+    clusterIssuer: letsencrypt-prod  # ClusterIssuer 이름
+
+# Nginx Ingress Controller 설정
+ingress-nginx:
+  enabled: true
+  controller:
+    service:
+      type: ClusterIP  # RouterProxy가 외부 트래픽 처리
+
+# Cert-Manager 설정  
+cert-manager:
+  enabled: true
+  installCRDs: false  # CRD는 별도 관리
+
+# Let's Encrypt 설정
+letsencrypt:
+  staging:
+    enabled: false  # 프로덕션에서는 비활성화
+  production:
+    enabled: true
+
+# 기본 Ingress 설정 (선택사항)
+basicIngress:
+  enabled: false  # RouterProxy가 주 진입점
+
+# Router SSL Proxy 설정 (핵심!)
+routerProxy:
+  enabled: true
+  replicas: 1
+  
+  # 백엔드 서비스들
+  backends:
+  - name: router
+    serviceName: router-service
+    
+    # 외부 서비스 정보 (자동으로 Service/EndpointSlice 생성)
+    external:
+      ip: 192.168.1.1  # 실제 외부 라우터 IP로 변경
+      namespace: ingress-nginx
+    
+    # 라우팅 설정
+    routes:
+    - path: /
+      ports:
+      - targetPort: 80      # 라우터 실제 포트  
+        proxyPort: 8080     # 외부 접근 포트
+      - targetPort: 80
+        proxyPort: 443      # HTTPS 포트
+      # - targetPort: 80    # proxyPort 생략시 80으로 접근
+
+  # 리소스 제한 (선택사항)
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m  
+      memory: 128Mi
+
+---
+
+# ==============================================
+# 예제 2: 다중 백엔드 설정
+# ==============================================
+
+# routerProxy:
+#   enabled: true
+#   replicas: 2  # 고가용성
+#   
+#   backends:
+#   # 외부 라우터
+#   - name: router
+#     serviceName: router-service
+#     external:
+#       ip: 192.168.1.1
+#       namespace: ingress-nginx
+#     routes:
+#     - path: /
+#       ports:
+#       - targetPort: 80
+#         proxyPort: 8080
+#   
+#   # NAS 서버  
+#   - name: nas
+#     serviceName: nas-service
+#     external:
+#       ip: 192.168.1.100
+#       namespace: storage
+#     routes:
+#     - path: /nas
+#       ports:
+#       - targetPort: 5000    # Synology NAS
+#         proxyPort: 9000
+
+---
+
+# ==============================================  
+# 예제 3: SSL 비활성화 (개발 환경)
+# ==============================================
+
+# global:
+#   domain: ""  # IP 전용
+#   ssl:
+#     enabled: false  # HTTP만 사용
+# 
+# routerProxy:
+#   enabled: true
+#   replicas: 1
+#   
+#   backends:
+#   - name: devserver
+#     serviceName: dev-service
+#     external:
+#       ip: 192.168.1.200
+#       namespace: development
+#     routes:
+#     - path: /
+#       ports:
+#       - targetPort: 3000    # React dev server
+#         proxyPort: 8080
+
+---
+
+# ==============================================
+# 예제 4: 복잡한 경로 기반 라우팅
+# ==============================================
+
+# routerProxy:
+#   enabled: true
+#   replicas: 1
+#   
+#   backends:
+#   - name: webapp
+#     serviceName: webapp-service
+#     external:
+#       ip: 192.168.1.50
+#       namespace: apps
+#     routes:
+#     # 메인 앱
+#     - path: /
+#       ports:
+#       - targetPort: 80
+#         proxyPort: 443
+#     # API 서버
+#     - path: /api
+#       ports:  
+#       - targetPort: 3000
+#         proxyPort: 443
+#     # 관리자 페이지
+#     - path: /admin
+#       ports:
+#       - targetPort: 8000
+#         proxyPort: 9443
+
+---
+
+# ==============================================
+# 예제 5: IP 전용 (도메인 없음)
+# ==============================================
+
+# global:
+#   domain: ""  # 빈 문자열 = IP 전용
+#   email: your-email@example.com
+#   ssl:
+#     enabled: false  # IP 전용에서는 SSL 어려움
+# 
+# routerProxy:
+#   enabled: true  
+#   replicas: 1
+#   
+#   backends:
+#   - name: localapp
+#     serviceName: local-service
+#     external:
+#       ip: 127.0.0.1
+#       namespace: default
+#     routes:
+#     - path: /
+#       ports:
+#       - targetPort: 8080
+#         # proxyPort 생략 = 8080으로 접근
+
+---
+
+# ==============================================
+# 사용 방법:
+# ==============================================
+
+# 1. 이 파일을 복사해서 values-custom.yaml 생성
+# cp examples/values-example.yaml values-custom.yaml
+
+# 2. 필요한 예제 부분 선택하고 실제 값으로 수정
+
+# 3. Helm 설치시 사용  
+# helm install ingress-nginx . -f values-custom.yaml --namespace ingress-nginx
+
+# 4. 업그레이드시 사용
+# helm upgrade ingress-nginx . -f values-custom.yaml --namespace ingress-nginx

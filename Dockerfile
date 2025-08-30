@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     xdg-utils \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 작업 디렉토리 설정
@@ -45,6 +46,7 @@ RUN mkdir -p news_data_browser
 VOLUME ["/app/news_data_browser"]
 
 # 환경변수 기본값 설정 (실제 배포시 값 변경 필요)
+ENV TZ=Asia/Seoul
 ENV PYTHONPATH=/app
 ENV LOG_LEVEL=INFO
 ENV GPT_MODEL=gpt-5

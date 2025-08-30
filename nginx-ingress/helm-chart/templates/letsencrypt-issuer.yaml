@@ -1,0 +1,37 @@
+{{- if and .Values.global.ssl.enabled .Values.letsencrypt.staging.enabled }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    {{- include "ingress-nginx.labels" . | nindent 4 }}
+spec:
+  acme:
+    server: {{ .Values.letsencrypt.staging.server }}
+    email: {{ .Values.global.email }}
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+{{- end }}
+---
+{{- if and .Values.global.ssl.enabled .Values.letsencrypt.production.enabled }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    {{- include "ingress-nginx.labels" . | nindent 4 }}
+spec:
+  acme:
+    server: {{ .Values.letsencrypt.production.server }}
+    email: {{ .Values.global.email }}
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+{{- end }}

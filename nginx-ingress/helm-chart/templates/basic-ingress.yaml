@@ -1,0 +1,34 @@
+{{- if .Values.basicIngress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.basicIngress.name }}
+  annotations:
+    # Nginx Ingress Controller 관련 설정
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    
+    # SSL은 routerProxy에서 처리하므로 redirect 비활성화
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  # Nginx Ingress Controller 사용 (최신 방식)
+  ingressClassName: nginx
+  # SSL은 routerProxy에서 처리하므로 TLS 설정 제거
+  
+  # 라우팅 규칙 (HTTP만 처리)
+  rules:
+  {{- if .Values.global.domain }}
+  - host: {{ .Values.global.domain }}
+    http:
+  {{- else }}
+  - http:
+  {{- end }}
+      paths:
+      # 기본 경로 - 나중에 실제 서비스로 변경
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.basicIngress.serviceName | default "your-app-service" }}
+            port:
+              number: {{ .Values.basicIngress.servicePort | default 80 }}
+{{- end }}
