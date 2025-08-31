@@ -20,10 +20,33 @@ def main():
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--single-process',
+                '--disable-background-timer-throttling',
+                '--disable-renderer-backgrounding',
+                '--disable-animations',
+                '--disable-smooth-scrolling',
+                '--disable-features=TranslateUI,BlinkGenPropertyTrees'
+            ]
         )
-        context = browser.new_context()
+        context = browser.new_context(
+            # 라즈베리파이 성능에 맞는 타임아웃 설정
+            viewport={'width': 1920, 'height': 1080},
+            # 추가 안정성을 위한 설정
+            accept_downloads=False,
+            ignore_https_errors=True
+        )
         page = context.new_page()
+        
+        # 라즈베리파이용 긴 타임아웃 설정
+        page.set_default_timeout(120000)  # 2분
+        page.set_default_navigation_timeout(120000)  # 2분
 
         # WebSocket 후킹 스크립트 삽입
         page.add_init_script("""
@@ -78,18 +101,33 @@ def main():
 
             # Login 버튼이 나타날 때까지 대기 (정확한 선택자로 2개 요소 문제 해결)
             page.wait_for_selector('ul.nav li.nav-item a[data-bs-target="#login-modal"]', timeout=timeout)
+            
+            # 라즈베리파이에서 안정성을 위한 추가 대기
+            page.wait_for_timeout(2000)
+            
+            # Login 버튼 클릭 (순수 Playwright)
             page.click('ul.nav li.nav-item a[data-bs-target="#login-modal"]')
             logger.info("✅ Login 버튼 클릭 완료")
+            
+            # 모달이 완전히 열릴 때까지 대기
+            page.wait_for_selector('#login-modal', state='attached', timeout=timeout)
+            page.wait_for_timeout(3000)  # 애니메이션 완료 대기
 
             # 이메일 입력 필드가 나타날 때까지 대기
+            page.wait_for_selector("input[name='email']", timeout=timeout)
             page.fill("input[name='email']", config.STOCKTITAN_EMAIL)
             logger.info("✅ 이메일 입력 완료")
             
             # 패스워드 입력 필드가 나타날 때까지 대기
+            page.wait_for_selector("input[name='password']", timeout=timeout)
             page.fill("input[name='password']", config.STOCKTITAN_PASSWORD)
             logger.info("✅ 패스워드 입력 완료")
             
-            # 로그인 제출 버튼이 나타날 때까지 대기
+            # 로그인 제출 버튼이 활성화될 때까지 대기
+            page.wait_for_selector("button#login-submit", timeout=timeout)
+            page.wait_for_timeout(1000)  # 버튼 활성화 대기
+            
+            # 로그인 제출 버튼 클릭 (순수 Playwright)
             page.click("button#login-submit")
             logger.info("✅ 로그인 제출 버튼 클릭 완료")
             
