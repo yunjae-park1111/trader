@@ -2,16 +2,23 @@ import json
 import os
 import requests
 from datetime import datetime
-from .config import logger, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from .config import logger, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_ERROR_BOT_TOKEN, TELEGRAM_ERROR_CHAT_ID
 from .llm_analyzer import analyze_prediction_accuracy_with_gpt, analyze_price_movement_with_gpt
 
 def send_error_notification(error_type: str, error_message: str, symbol: str = ""):
     """
-    에러 발생시 텔레그램으로 알림을 보냅니다.
+    에러 발생시 텔레그램으로 알림을 보냅니다. (에러 전용 채널 우선 사용)
     """
     try:
-        bot_token = TELEGRAM_BOT_TOKEN
-        chat_id = TELEGRAM_CHAT_ID
+        # 에러 전용 텔레그램 설정이 있으면 우선 사용, 없으면 기본 설정 사용
+        if TELEGRAM_ERROR_BOT_TOKEN and TELEGRAM_ERROR_CHAT_ID:
+            bot_token = TELEGRAM_ERROR_BOT_TOKEN
+            chat_id = TELEGRAM_ERROR_CHAT_ID
+            channel_info = " (에러 전용 채널)"
+        else:
+            bot_token = TELEGRAM_BOT_TOKEN
+            chat_id = TELEGRAM_CHAT_ID
+            channel_info = " (일반 채널)"
         
         if not bot_token or not chat_id:
             return

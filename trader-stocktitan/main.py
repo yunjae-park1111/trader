@@ -17,14 +17,10 @@ def main():
     """
     # Webull 초기화
     initialize_webull()
-    logger.info(f"STOCKTITAN_EMAIL: {config.STOCKTITAN_EMAIL}")
-    logger.info(f"STOCKTITAN_PASSWORD: {config.STOCKTITAN_PASSWORD}")
-    logger.info(f"STOCKTITAN_NAME: {config.STOCKTITAN_NAME}")
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,
-            channel="chromium"
+            headless=True
         )
         context = browser.new_context()
         page = context.new_page()
@@ -70,47 +66,37 @@ def main():
 
         # 접속 및 클릭 흐름
         page.goto("https://www.stocktitan.net/")
-        
-        # 페이지 로드 완료 대기
         logger.info("🌐 메인 페이지 접속 중...")
-        page.wait_for_load_state('load', timeout=10000)
-        logger.info("🌐 메인 페이지 접속 완료")
-        time.sleep(1)
+
+        timeout = 60000
         
         if config.STOCKTITAN_EMAIL and config.STOCKTITAN_PASSWORD:
+            # Bootstrap이 로드되었는지 확인
+            page.wait_for_function("typeof bootstrap !== 'undefined' || typeof window.bootstrap !== 'undefined'", timeout=timeout)
+            logger.info("🌐 메인 페이지 접속 완료")
             logger.info("🌐 로그인 중...")
-            
-            # Login 버튼이 나타날 때까지 대기 (정확한 선택자 사용)
-            page.wait_for_selector('a[data-bs-target="#login-modal"]', timeout=10000)
-            page.click('a[data-bs-target="#login-modal"]')
+
+            # Login 버튼이 나타날 때까지 대기 (정확한 선택자로 2개 요소 문제 해결)
+            page.wait_for_selector('ul.nav li.nav-item a[data-bs-target="#login-modal"]', timeout=timeout)
+            page.click('ul.nav li.nav-item a[data-bs-target="#login-modal"]')
             logger.info("✅ Login 버튼 클릭 완료")
-            
-            # 로그인 모달이 나타날 때까지 대기
-            page.wait_for_selector('#login-modal', timeout=10000)
-            logger.info("✅ 로그인 모달 나타남")
-            time.sleep(1)
 
             # 이메일 입력 필드가 나타날 때까지 대기
-            page.wait_for_selector("input[name='email']", timeout=10000)
             page.fill("input[name='email']", config.STOCKTITAN_EMAIL)
             logger.info("✅ 이메일 입력 완료")
             
             # 패스워드 입력 필드가 나타날 때까지 대기
-            page.wait_for_selector("input[name='password']", timeout=10000)
             page.fill("input[name='password']", config.STOCKTITAN_PASSWORD)
             logger.info("✅ 패스워드 입력 완료")
             
             # 로그인 제출 버튼이 나타날 때까지 대기
-            page.wait_for_selector("button#login-submit", timeout=10000)
             page.click("button#login-submit")
             logger.info("✅ 로그인 제출 버튼 클릭 완료")
             
             # 로그인 성공 확인 (닉네임이 나타나는지 체크)
             try:
-                page.wait_for_load_state('load', timeout=10000)
-                time.sleep(5)
-
-                page.wait_for_selector(f"text={config.STOCKTITAN_NAME}", timeout=10000)
+                # ID 기반으로 닉네임 찾기
+                page.wait_for_selector(f'a#navbarDropdownMenuLink:has-text("{config.STOCKTITAN_NAME}")', timeout=timeout)
                 logger.info(f"✅ 로그인 성공: {config.STOCKTITAN_NAME}")
             except:
                 logger.error("❌ 로그인 실패 - 닉네임을 찾을 수 없습니다")
@@ -118,24 +104,21 @@ def main():
         else:
             logger.info("⚠️ StockTitan 로그인 정보 없음 - 게스트로 진행")
 
-        page.wait_for_load_state('load', timeout=10000)
-        time.sleep(1)
+        page.wait_for_load_state('load', timeout=timeout)
 
         # NEWS FEED 버튼이 나타날 때까지 대기
-        page.wait_for_selector("text=NEWS FEED", timeout=15000)
+        page.wait_for_selector("text=NEWS FEED", timeout=timeout)
         page.click("text=NEWS FEED")
         logger.info("✅ NEWS FEED 클릭 완료")
 
-        page.wait_for_load_state('load', timeout=10000)
-        time.sleep(1)
+        page.wait_for_load_state('load', timeout=timeout)
         
         # 드롭다운 메뉴가 나타날 때까지 대기
-        page.wait_for_selector("a.dropdown-item[href='/news/live.html']", timeout=10000)
+        page.wait_for_selector("a.dropdown-item[href='/news/live.html']", timeout=timeout)
         page.click("a.dropdown-item[href='/news/live.html']")
         logger.info("🌐 실시간 뉴스 수신 페이지 이동 중...")
 
-        page.wait_for_load_state('load', timeout=10000)
-        time.sleep(1)
+        page.wait_for_load_state('load', timeout=timeout)
 
         logger.info("🌐 실시간 뉴스 수신 페이지 이동 완료")
         logger.info("🌐 실시간 뉴스 수신 중...")

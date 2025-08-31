@@ -30,9 +30,13 @@ WB_EMAIL = os.getenv("WB_EMAIL")
 WB_PASSWORD = os.getenv("WB_PASSWORD")
 WB_TRADE_PIN = os.getenv("WB_TRADE_PIN")
 
-# 텔레그램 봇 설정
+# 텔레그램 봇 설정 (일반 알림용)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+# 텔레그램 봇 설정 (에러 전용)
+TELEGRAM_ERROR_BOT_TOKEN = os.getenv("TELEGRAM_ERROR_BOT_TOKEN")
+TELEGRAM_ERROR_CHAT_ID = os.getenv("TELEGRAM_ERROR_CHAT_ID")
 
 # OpenAI 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
