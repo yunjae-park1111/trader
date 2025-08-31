@@ -1,6 +1,6 @@
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 from news_listener import (
     logger,
@@ -10,6 +10,9 @@ from news_listener import (
     send_error_notification,
     config
 )
+
+# 글로벌 변수로 마지막 메시지 시간 기록
+last_message_time = None
 
 def main():
     """
@@ -48,42 +51,85 @@ def main():
         page.set_default_timeout(120000)  # 2분
         page.set_default_navigation_timeout(120000)  # 2분
 
-        # WebSocket 후킹 스크립트 삽입
+        # WebSocket 후킹 스크립트 삽입 (개선된 버전)
         page.add_init_script("""
             (function() {
                 const OriginalWebSocket = window.WebSocket;
                 window.WebSocket = function(...args) {
                     const ws = new OriginalWebSocket(...args);
-                    ws.addEventListener('message', event => {
+                    
+                    // 연결 상태 로깅
+                    ws.addEventListener('open', () => {
+                        console.log("[WS STATUS] Connected to:", args[0]);
+                    });
+                    
+                    ws.addEventListener('close', (event) => {
+                        console.log("[WS STATUS] Disconnected, code:", event.code);
+                    });
+                    
+                    ws.addEventListener('error', (error) => {
+                        console.log("[WS ERROR]", error);
+                    });
+                    
+                    // 메시지 로깅
+                    ws.addEventListener('message', (event) => {
                         console.log("[WS MESSAGE]", event.data);
                     });
+                    
                     return ws;
-                }
+                };
             })();
         """)
 
-        # 콘솔 로그 감지 → 뉴스만 추출
+        # 콘솔 로그 감지 및 처리 (개선된 버전)
         def handle_console(msg):
-            txt = msg.text
+            global last_message_time
+            txt = msg.text.strip()
+            
+            # WebSocket 상태 메시지 처리
+            if txt.startswith("[WS STATUS]"):
+                if "Connected to:" in txt:
+                    logger.info("🔌 WebSocket 연결 성공")
+                elif "Disconnected" in txt:
+                    logger.warning("🔌 WebSocket 연결 끊어짐")
+                return
+            
+            # WebSocket 에러 메시지 처리
+            if txt.startswith("[WS ERROR]"):
+                logger.error(f"🔌 WebSocket 에러: {txt}")
+                send_error_notification("WebSocket 에러", txt)
+                return
+            
+            # WebSocket 메시지 처리
             if txt.startswith("[WS MESSAGE]"):
                 try:
                     raw_json = txt.replace("[WS MESSAGE]", "").strip()
                     data = json.loads(raw_json)
-                    if data.get("header", {}).get("type") == "ping":
+                    message_type = data.get("header", {}).get("type", "unknown")
+                    
+                    if message_type == "ping":
+                        # 핑퐁 수신 시 시간 기록
+                        last_message_time = datetime.now()
                         payload = data.get("payload", {})
                         k_value = payload.get("k", "")
-                        logger.info(f"뉴스 대기 중... {k_value} {datetime.now()}")
-                    elif data.get("header", {}).get("type") == "news":
+                        logger.info(f"🔄 핑퐁 수신... {k_value} {datetime.now().strftime('%H:%M:%S')}")
+                        
+                    elif message_type == "news":
+                        # 뉴스 수신 시 시간 기록
+                        last_message_time = datetime.now()
                         filepath = handle_news(data, SAVE_DIR)
-                        logger.info(f"🔍 뉴스 처리 결과: {filepath}")
+                        logger.info(f"📰 뉴스 처리 완료: {filepath}")
+                        
                     else:
-                        error_msg = f"처리되지 않은 응답 타입: {data.get('header', {}).get('type', 'unknown')}"
-                        logger.error(f"⚠️ {error_msg}")
-                        send_error_notification("알 수 없는 메시지 타입", f"{error_msg}\n\n전체 데이터: {str(data)}...")
+                        error_msg = f"알 수 없는 메시지 타입: {message_type}"
+                        logger.error(f"❌ {error_msg}")
+                        send_error_notification("알 수 없는 메시지 타입", f"{error_msg}\n\n전체 데이터: {str(data)[:500]}...")
+                        
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ JSON 파싱 실패: {e}")
                 except Exception as e:
-                    error_msg = f"JSON 파싱 오류: {e}"
-                    logger.error(f"❌ {error_msg}")
-                    send_error_notification("JSON 파싱 오류", error_msg)
+                    logger.error(f"❌ 메시지 처리 오류: {e}")
+                    send_error_notification("메시지 처리 오류", str(e))
 
         page.on("console", handle_console)
 
@@ -161,8 +207,24 @@ def main():
         logger.info("🌐 실시간 뉴스 수신 페이지 이동 완료")
         logger.info("🌐 실시간 뉴스 수신 중...")
 
+        # 타임아웃 체크 카운터
+        timeout_check_counter = 0
+        
         while True:
             page.wait_for_timeout(1000)
+            timeout_check_counter += 1
+            
+            # 60초마다 타임아웃 체크 (60 * 1초 = 60초)
+            if timeout_check_counter >= 60:
+                timeout_check_counter = 0
+                
+                if last_message_time is not None:
+                    time_diff = datetime.now() - last_message_time
+                    if time_diff > timedelta(minutes=10):
+                        error_msg = f"핑퐁/뉴스 수신 타임아웃: {time_diff.total_seconds()/60:.1f}분간 메시지 없음"
+                        logger.error(f"❌ {error_msg}")
+                        send_error_notification("WebSocket 타임아웃", error_msg)
+                        break
 
 def run_with_auto_restart():
     """
