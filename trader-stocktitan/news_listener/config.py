@@ -42,11 +42,6 @@ TELEGRAM_ERROR_CHAT_ID = os.getenv("TELEGRAM_ERROR_CHAT_ID")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GPT_MODEL = os.getenv("GPT_MODEL")
 
-# Stocktitan 설정
-STOCKTITAN_EMAIL = os.getenv("STOCKTITAN_EMAIL")
-STOCKTITAN_PASSWORD = os.getenv("STOCKTITAN_PASSWORD")
-STOCKTITAN_NAME = os.getenv("STOCKTITAN_NAME")
-
 # 컬럼명 구성 함수
 def generate_columns():
     """CSV 파일의 컬럼명을 생성합니다."""

@@ -7,21 +7,6 @@ LABEL maintainer="News Listener Team" \
 
 # 시스템 패키지 업데이트 및 필요한 패키지 설치
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libgtk-3-0 \
-    libgtk-4-1 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,9 +16,6 @@ WORKDIR /app
 # requirements.txt 복사 및 의존성 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Playwright 브라우저 설치
-RUN playwright install chromium
 
 # 소스 코드 복사
 COPY main.py .
@@ -57,9 +39,6 @@ ENV TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 ENV TELEGRAM_CHAT_ID=your-telegram-chat-id
 ENV TELEGRAM_ERROR_BOT_TOKEN=your-error-telegram-bot-token
 ENV TELEGRAM_ERROR_CHAT_ID=your-error-telegram-chat-id
-ENV STOCKTITAN_EMAIL=your-email@example.com
-ENV STOCKTITAN_PASSWORD=your-password
-ENV STOCKTITAN_NAME=your-display-name
 #ENV WB_TRADE_PIN=123456
 
 # 기본 실행 명령어

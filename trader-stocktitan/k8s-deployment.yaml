@@ -25,12 +25,7 @@ spec:
           value: "your-openai-api-key-here"
         - name: GPT_MODEL
           value: "gpt-5"
-        - name: STOCKTITAN_EMAIL
-          value: "your-email@example.com"
-        - name: STOCKTITAN_PASSWORD
-          value: "your-password"
-        - name: STOCKTITAN_NAME
-          value: "your-display-name"
+
         - name: TELEGRAM_BOT_TOKEN
           value: "your-telegram-bot-token"
         - name: TELEGRAM_CHAT_ID
